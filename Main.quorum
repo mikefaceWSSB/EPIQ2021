@@ -1,0 +1,411 @@
+use Libraries.Game.Game
+use Libraries.Game.Scenes.Scene
+use Libraries.System.File
+use Libraries.Interface.Item3D
+use Libraries.Interface.Events.KeyboardEvent
+use Libraries.Interface.Events.KeyboardListener
+use Libraries.Interface.Events.CollisionListener3D
+use Libraries.Interface.Events.CollisionEvent3D
+use Libraries.Compute.Vector3
+use Libraries.Compute.Math
+use Libraries.Game.Layer3D
+use Libraries.Containers.Iterator
+use Libraries.Sound.Audio
+use Libraries.Game.Graphics.Camera
+use Libraries.Game.Graphics.Label
+/*
+    This is a default class for creating a game in Quorum. Note that the Main 
+    action begins by calling StartGame(), which loads a window a game can 
+    be displayed in. The action CreateGame is where the game should load any 
+    assets, like images to be displayed, frames of animation, or sounds to be
+    played. 
+*/
+class Main is Game, KeyboardListener, CollisionListener3D
+    Item3D player = undefined
+    Item3D npc = undefined
+    Item3D spaceship = undefined
+    Item3D stargate = undefined
+    Item3D barrel = undefined
+    Item3D barrel1 = undefined
+    Item3D barrel2 = undefined
+    Item3D barrel3 = undefined
+    Item3D barrel4 = undefined
+    Item3D barrel5 = undefined
+    Item3D ground = undefined
+    Camera camera = undefined
+    Label label
+    Label label1
+    Label label2
+
+    KeyboardEvent event 
+    CollisionEvent3D event2
+    /*  velocities for player movement 
+    */    
+    number positive = 5 
+    number negative = -5
+    /*  variables to help set tile properties on the ground
+    */
+    Item3D layer = undefined
+    Item3D iterator = undefined
+    Item3D item = undefined
+
+    boolean hasTriggeredQuest = false
+    boolean questComplete = false
+    boolean hasTriggeredQuest2 = false
+    boolean questComplete2 = false
+    /*  Music for the first scene
+    */
+    Audio music
+    Audio quest
+    Audio fuel
+    Audio ship
+    Audio feet
+    Audio scream
+   
+    /*  Counter for the fuel collection quest.
+    */
+    integer fuelCounter = 0
+    /*
+        This action, Main, starts our computer program. In Quorum, programs always
+        begin from Main.
+    */
+    action Main
+        SetScreenSize(2000, 1000)
+        StartGame()
+    end
+
+    /*
+        Inside of this template, we load up a scene from on disk. The game automatically knows and can read these files.
+    */
+    action CreateGame
+        File file
+        file:SetPath("Scenes/Scene.qs")
+        LoadScene(file)
+        
+        label:SetText("Checkin with the Alien in charge of the Spaceport to figure out how we will get off this rock.")
+        label:SetSize(40)
+        label:SetPosition(5,10)
+        label:SetColor(2,2,10,100)
+        Add(label)
+        
+        player = FindItem3DByName("Player")
+        npc = FindItem3DByName("NPC")
+        spaceship = FindItem3DByName("Angled Winged Ship")
+        stargate = FindItem3DByName("Sphere-goal")
+        ground = FindItem3DByName("Brown Terrain 1")
+        
+        ground:SetCollidable(true)
+        stargate:SetCollidable(true)
+        stargate:CanRotate(false)
+        spaceship:SetCollidable(true)
+        spaceship:CanRotate(false)
+        spaceship:SetLinearDamping(0.1)
+        player:SetLinearDamping(0.1)
+        player:CanRotate(false)
+        number camX = player:GetX()
+        number camY = player:GetY() + 2
+        number camZ = player:GetZ() - 7
+        camera = GetCamera3D()
+        camera:SetPosition(camX, camY, camZ)
+        
+        barrel = FindItem3DByName("Barrel")
+        barrel1 = FindItem3DByName("Barrel 1")
+        barrel2 = FindItem3DByName("Barrel 2")
+        barrel3 = FindItem3DByName("Barrel 3")
+        barrel4 = FindItem3DByName("Barrel 4")
+        barrel5 = FindItem3DByName("Barrel 5")
+        
+        Layer3D layer = GetCurrentLayer3D()
+        Iterator<Item3D> iterator = layer:GetIterator()
+        repeat while iterator:HasNext()
+            Item3D item = iterator:Next()
+            if item:GetName():Contains("Flat floor")
+                item:EnablePhysics(true)
+                item:SetUnmovable()
+                item:SetFriction(0.2)
+            end
+        end
+        barrel:Hide()
+        barrel1:Hide()
+        barrel2:Hide()
+        barrel3:Hide()
+        barrel4:Hide()
+        barrel5:Hide()
+        stargate:Hide()
+
+        music:LoadToStream("Resources\Audio\background.ogg")
+        music:SetVolume(0.55)
+        music:Play()
+
+        fuel:Load("Resources\Audio\cha-ching.ogg")
+        fuel:SetVolume(1)
+
+        quest:Load("Resources\Audio\quest.ogg")
+        quest:SetVolume(2)
+
+        ship:Load("Resources\Audio\spaceship.ogg")
+        ship:SetVolume(3)
+
+        feet:Load("Resources\Audio\Running.ogg")
+        feet:SetVolume(1.5)
+
+        scream:Load("Resources\Audio\scream2.ogg")
+        scream:SetVolume(1.5)
+        
+
+        AddKeyboardListener(me)
+        AddCollisionListener(me)
+
+        EnablePhysics3D(true)
+        SetGravity3D(0, -9.8, 0)
+
+    end
+    /*
+        The update action is called on every "frame" of animation in a game. This
+        action should be used to do operations on items. So, for example, we 
+        might use this action to change frames of animation, to rotate items, 
+        or to make creatures jump.
+    */
+    action Update(number seconds)
+        music:Stream()
+        number camX = player:GetX()
+        number camY = player:GetY() + 2
+        number camZ = player:GetZ() + 5
+        number sCamX = spaceship:GetX()
+        number sCamY = spaceship:GetY() + 2
+        number sCamZ = spaceship:GetZ() + 5  
+        
+        if hasTriggeredQuest2 = true
+            camera:SetPosition(sCamX, sCamY, sCamZ)
+        elseif hasTriggeredQuest2 = false
+            camera:SetPosition(camX, camY, camZ) 
+        end
+    end
+
+    action PressedKey(KeyboardEvent event)
+        Vector3 vector = player:GetLinearVelocity()
+        Vector3 vector2 = spaceship:GetLinearVelocity()
+//this distance is calculated using the Vector3 library distance action
+                      
+            number distance = vector:Distance(player:GetX(),player:GetY(),player:GetZ(),npc:GetX(),npc:GetY(),npc:GetZ())
+            number distance2 = vector2:Distance(stargate:GetX(),stargate:GetY(),stargate:GetZ(),spaceship:GetX(),spaceship:GetY(),spaceship:GetZ())
+            number maxDistance2 = 0.5
+            number maxDistance = 1.5
+        
+                    if hasTriggeredQuest2 = true and event:keyCode = event:LEFT
+                        vector2:SetX(positive)
+                        spaceship:SetLinearVelocity(vector2)
+                        spaceship:SetYawPitchRoll(90,0,0)
+                        ship:Play()
+                    elseif hasTriggeredQuest2 = true and event:keyCode = event:RIGHT
+                        vector2:SetX(negative)
+                        spaceship:SetLinearVelocity(vector2)
+                        spaceship:SetYawPitchRoll(270,0,0)
+                        ship:Play()      
+                    elseif hasTriggeredQuest2 = true and event:keyCode = event:UP
+                        vector2:SetZ(negative)
+                        spaceship:SetLinearVelocity(vector2)
+                        spaceship:SetYawPitchRoll(0,0,0)
+                        ship:Play()
+                    elseif hasTriggeredQuest2 = true and event:keyCode = event:DOWN
+                        vector2:SetZ(positive)
+                        spaceship:SetLinearVelocity(vector2)
+                        spaceship:SetYawPitchRoll(180,0,0)
+                        ship:Play()            
+                    elseif hasTriggeredQuest2 = true and event:keyCode = event:SPACE
+                        vector2:SetY(positive * 0.5)
+                        spaceship:SetLinearVelocity(vector2)  
+                    elseif hasTriggeredQuest2 = true and event:keyCode = event:X
+                        vector2:SetY(negative * 0.5)
+                        spaceship:SetLinearVelocity(vector2)
+                    end
+
+        if event:keyCode = event:LEFT
+            vector:SetX(positive)
+            player:SetLinearVelocity(vector)
+            player:SetYawPitchRoll(90,0,0)
+            feet:Play()
+        elseif event:keyCode = event:RIGHT
+            vector:SetX(negative)
+            player:SetLinearVelocity(vector)
+            player:SetYawPitchRoll(270,0,0)
+            feet:Play()      
+        elseif event:keyCode = event:UP  
+            vector:SetZ(negative)
+            player:SetLinearVelocity(vector)
+            player:SetYawPitchRoll(0,0,0)
+            feet:Play()
+        elseif event:keyCode = event:DOWN 
+            vector:SetZ(positive)
+            player:SetLinearVelocity(vector)
+            player:SetYawPitchRoll(180,0,0)
+            feet:Play()            
+        elseif event:keyCode = event:SPACE 
+            vector:SetY(positive * 0.5)
+            player:SetLinearVelocity(vector)  
+        elseif event:keyCode = event:X
+            Remove(label)
+            Remove(label1)
+            Remove(label2)
+        
+
+            if distance < maxDistance and not hasTriggeredQuest
+                output "Hello Novice Pilot. We need to fuel up the ship before you can escape through the stargate. Collect 6 fuel barrels, they are scattered around the spaceport."
+                label1:SetText("Hello Novice Pilot. We need to fuel up the ship before you can escape through the stargate.")
+                label1:SetSize(40)
+                label1:SetPosition(5,70)
+                label1:SetColor(2,2,10,100)
+                Add(label1)
+                label:SetText("Collect 6 fuel barrels, they are scattered around the spaceport.")
+                label:SetSize(40)
+                label:SetPosition(5,10)
+                label:SetColor(2,2,10,100)
+                Add(label)
+                hasTriggeredQuest = true
+                barrel:Show()
+                barrel1:Show()
+                barrel2:Show()
+                barrel3:Show()
+                barrel4:Show()
+                barrel5:Show()
+                barrel:SetCollidable(true)
+                barrel1:SetCollidable(true)
+                barrel2:SetCollidable(true)
+                barrel3:SetCollidable(true)
+                barrel4:SetCollidable(true)
+                barrel5:SetCollidable(true)
+            elseif distance < maxDistance and hasTriggeredQuest and fuelCounter < 6
+                output "I've already told you about the fuel. Please hurry, the Frontiersmen are closing in."
+                label:SetText("I've already told you about the fuel. Please hurry, the Frontiersmen are closing in.")
+                label:SetSize(40)
+                label:SetPosition(5,10)
+                label:SetColor(2,2,10,100)
+                Add(label)
+            elseif distance < maxDistance and hasTriggeredQuest and fuelCounter = 6
+                output "Great job! Not sure where you found all that fuel so fast but let's jump in and get outta here."
+                label1:SetText("Great job! Not sure where you found all that fuel so fast but let's jump in")
+                label1:SetSize(40)
+                label1:SetPosition(5,70)
+                label1:SetColor(2,2,10,100)
+                Add(label1)
+                label:SetText("and get outta here.")
+                label:SetSize(40)
+                label:SetPosition(5,10)
+                label:SetColor(2,2,10,100)
+                Add(label)
+                quest:Play()
+                questComplete = true
+            end
+                    
+            
+        end
+        
+        //Use the force
+        player:SetLinearVelocity(vector)
+        spaceship:SetLinearVelocity(vector2)
+        
+    end
+    action ReleasedKey(KeyboardEvent event)
+        Vector3 vector 
+        vector:Set(0,0,0)
+        if event:keyCode = event:LEFT or event:keyCode = event:RIGHT            
+            player:SetLinearVelocity(vector)
+            feet:Stop()
+        elseif event:keyCode = event:UP or event:keyCode = event:DOWN            
+            player:SetLinearVelocity(vector)
+            feet:Stop()
+        elseif event:keyCode = event:SPACE            
+            player:SetLinearVelocity(vector)
+            feet:Stop()
+        end
+    end
+   action BeginCollision(CollisionEvent3D event)
+        Item3D itemA = event:GetItemA()
+        Item3D itemB = event:GetItemB()
+
+        text nameA = itemA:GetName()
+        text nameB = itemB:GetName()
+
+        if (nameA = "Player" and nameB:Contains("Brown Terrain 1")) or (nameA:Contains("Brown Terrain 1") and nameB = "Player")
+            scream:Play()
+            output "You sank into the planet! Stay on the spaceport runway."
+            label:SetText("You sank into the planet! Stay on the spaceport runway.")
+            label:SetSize(40)
+            label:SetPosition(5,10)
+            label:SetColor(2,2,10,100)
+            Add(label)
+            label2:SetText("Sorry, you died!")
+            label2:SetSize(70)
+            label2:SetPosition(800,500)
+            label2:SetColor(2,2,10,100)
+            Add(label2)
+            if itemA:GetName():Contains("Player")
+                itemA:SetPosition(4, 0, 45)
+            elseif itemB:GetName():Contains("Player")
+                itemA:SetPosition(4, 0, 45)
+            end
+        end
+        
+        if (nameA = "Player" and nameB:Contains("Barrel")) or (nameA:Contains("Barrel") and nameB = "Player")
+            fuelCounter = fuelCounter + 1
+            output "You picked up fuel, you have " + fuelCounter + "/6"
+            label:SetText("You picked up fuel, you have " + fuelCounter + "/6")
+            label:SetSize(40)
+            label:SetPosition(5,10)
+            label:SetColor(2,2,10,100)
+            Add(label)
+            fuel:Play()
+            if itemA:GetName():Contains("Barrel")
+                Remove(itemA)
+            elseif itemB:GetName():Contains("Barrel")
+                Remove(itemB)
+            end
+        end
+        if  fuelCounter = 6 and questComplete = true and (nameA = "Player" and nameB:Contains("Angled Winged Ship")) or (nameA:Contains("Angled Winged Ship") and nameB = "Player")
+            output "Let's get out of here!"
+            label:SetText("Let's get out of here!")
+            label:SetSize(40)
+            label:SetPosition(5,10)
+            label:SetColor(2,2,10,100)
+            Add(label)
+            label2:SetText("Congratulations, Quest Completed!")
+            label2:SetSize(70)
+            label2:SetPosition(400,500)
+            label2:SetColor(2,2,10,100)
+            Add(label2)
+            ship:Play()
+            if itemA:GetName():Contains("Player")
+                Remove(itemA)
+                hasTriggeredQuest2 = true
+                SetGravity3D(0, -0.5, 0)
+                spaceship:EnablePhysics(true)
+                spaceship:SetResponsive()
+                stargate:Show()
+            elseif itemB:GetName():Contains("Player")
+                Remove(itemB)
+                hasTriggeredQuest2 = true
+                SetGravity3D(0, -0.5, 0)
+                spaceship:EnablePhysics(true)
+                spaceship:SetResponsive()
+                stargate:Show()
+            end
+        end
+        if  hasTriggeredQuest2 = true and (nameA = "Sphere-goal" and nameB:Contains("Angled Winged Ship")) or (nameA:Contains("Angled Winged Ship") and nameB = "Sphere-goal")
+            questComplete2 = true
+            label2:SetText("Congratulations, Quest 2 Completed!")
+            label2:SetSize(70)
+            label2:SetPosition(400,500)
+            label2:SetColor(2,2,10,100)
+            Add(label2)
+            music:SetVolume(0.15)
+            quest:Play()
+            if itemA:GetName():Contains("Angled Winged Ship")
+                Remove(itemA)
+            elseif itemB:GetName():Contains("Angled Winged Ship")
+                Remove(itemB)
+            end  
+        end
+            
+    end
+     
+end
